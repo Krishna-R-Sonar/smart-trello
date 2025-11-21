@@ -3,13 +3,16 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
+import confetti from 'canvas-confetti';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [boards, setBoards] = useState([]);
   const [invites, setInvites] = useState([]);
   const [title, setTitle] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [joinLoading, setJoinLoading] = useState('');
 
   const fetchBoards = async () => {
@@ -21,6 +24,8 @@ export default function Dashboard() {
       ]);
       setBoards(boardRes.data);
       setInvites(inviteRes.data);
+    } catch (err) {
+      toast.error('Failed to load boards');
     } finally {
       setLoading(false);
     }
@@ -28,16 +33,31 @@ export default function Dashboard() {
 
   const createBoard = async () => {
     if (!title.trim()) return;
-    await api.post('/boards', { title });
-    setTitle('');
-    fetchBoards();
+    try {
+      await api.post('/boards', { title });
+      setTitle('');
+      toast.success('Board created!');
+      if (boards.length === 0) {
+        confetti({
+          particleCount: 120,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
+      fetchBoards();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to create board');
+    }
   };
 
   const acceptInvite = async (boardId) => {
     setJoinLoading(boardId);
     try {
       await api.post(`/boards/${boardId}/accept`);
-      await fetchBoards();
+      toast.success('Joined board!');
+      fetchBoards();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to join');
     } finally {
       setJoinLoading('');
     }
@@ -46,6 +66,8 @@ export default function Dashboard() {
   useEffect(() => {
     fetchBoards();
   }, []);
+
+  if (loading) return <LoadingSpinner message="Loading your workspace..." />;
 
   return (
     <div className="space-y-10">
@@ -59,6 +81,7 @@ export default function Dashboard() {
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && createBoard()}
             placeholder="New board title"
             className="flex-1 min-w-[200px] rounded-2xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand/60"
           />
@@ -97,11 +120,10 @@ export default function Dashboard() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Your boards</h2>
-          {loading && <span className="text-xs text-slate-500">Refreshing…</span>}
         </div>
         {boards.length === 0 ? (
-          <div className="p-6 rounded-2xl bg-white border border-dashed text-slate-500">
-            You have no boards yet. Create one above!
+          <div className="p-10 rounded-2xl bg-white border-2 border-dashed border-slate-200 text-center text-slate-500">
+            <p className="text-lg">No boards yet. Create your first one above!</p>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -109,7 +131,7 @@ export default function Dashboard() {
               <Link
                 key={board._id}
                 to={`/board/${board._id}`}
-                className="p-6 rounded-2xl bg-white border border-slate-100 hover:border-brand/40 hover:-translate-y-0.5 transition shadow-sm"
+                className="p-6 rounded-2xl bg-white border border-slate-100 hover:border-brand/40 hover:-translate-y-1 transition-all shadow-sm hover:shadow-lg"
               >
                 <p className="text-sm text-slate-400 uppercase tracking-wide mb-2">Board</p>
                 <h3 className="text-xl font-semibold text-slate-900">{board.title}</h3>

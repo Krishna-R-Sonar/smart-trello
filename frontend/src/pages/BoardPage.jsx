@@ -6,6 +6,8 @@ import api from '../services/api';
 import Board from '../components/Board/Board';
 import RecommendationsPanel from '../components/Board/RecommendationsPanel';
 import InviteModal from '../components/InviteModal';
+import toast from 'react-hot-toast';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://smart-trello.onrender.com';
 const SOCKET_URL = API_URL;
@@ -29,6 +31,7 @@ export default function BoardPage() {
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to load board');
+      toast.error('Failed to load board');
     } finally {
       setRefreshing(false);
       setLoading(false);
@@ -40,67 +43,105 @@ export default function BoardPage() {
   }, [fetchBoard]);
 
   useEffect(() => {
-    const socket = io(SOCKET_URL);
+    const socket = io(SOCKET_URL, {
+      withCredentials: true,
+      transports: ['websocket']
+    });
+
     socket.emit('joinBoard', id);
-    socket.on('board:updated', boardId => {
-      if (boardId === id) {
+
+    socket.on('board:updated', (boardId) => {
+      if (boardId === id && !refreshing) {
         fetchBoard();
+        toast('Board updated by teammate', {
+          icon: 'Refresh',
+          duration: 2500,
+        });
       }
     });
+
     return () => socket.disconnect();
-  }, [id, fetchBoard]);
+  }, [id, fetchBoard, refreshing]);
 
   const addCard = async (listId, payload) => {
-    await api.post(`/cards/${id}`, { ...payload, listId });
-    fetchBoard();
+    try {
+      await api.post(`/cards/${id}`, { ...payload, listId });
+      toast.success('Card created');
+      fetchBoard();
+    } catch (err) {
+      toast.error('Failed to create card');
+    }
   };
 
   const moveCard = async (sourceListId, destListId, cardId) => {
     if (sourceListId === destListId) return;
-    await api.post(`/cards/${id}/move`, { sourceListId, destListId, cardId });
-    fetchBoard();
+    try {
+      await api.post(`/cards/${id}/move`, { sourceListId, destListId, cardId });
+      toast.success('Card moved');
+      fetchBoard();
+    } catch (err) {
+      toast.error('Failed to move card');
+    }
   };
 
   const updateCard = async (cardId, updates) => {
-    await api.put(`/cards/${cardId}`, updates);
-    fetchBoard();
+    try {
+      await api.put(`/cards/${cardId}`, updates);
+      toast.success('Card updated');
+      fetchBoard();
+    } catch (err) {
+      toast.error('Failed to update card');
+    }
   };
 
   const addList = async () => {
     if (!newListTitle.trim()) return;
-    await api.post(`/boards/${id}/lists`, { title: newListTitle });
-    setNewListTitle('');
-    fetchBoard();
+    try {
+      await api.post(`/boards/${id}/lists`, { title: newListTitle });
+      toast.success('List added');
+      setNewListTitle('');
+      fetchBoard();
+    } catch (err) {
+      toast.error('Failed to add list');
+    }
   };
 
   const inviteUser = async (email) => {
-    await api.post(`/boards/${id}/invite`, { email });
+    try {
+      await api.post(`/boards/${id}/invite`, { email });
+      toast.success(`Invite sent to ${email}`);
+      setInviteOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send invite');
+    }
   };
 
   const applyRecommendation = async (rec) => {
-    if (rec.type === 'dueDate') {
-      await updateCard(rec.cardId, { dueDate: rec.suggestedDate });
-    } else if (rec.type === 'move' && rec.suggestedListId) {
-      const sourceListId = board?.lists.find(list => list.cards.some(card => card._id === rec.cardId))?._id;
-      if (sourceListId) {
-        await moveCard(sourceListId, rec.suggestedListId, rec.cardId);
+    try {
+      if (rec.type === 'dueDate') {
+        await updateCard(rec.cardId, { dueDate: rec.suggestedDate });
+        toast.success('Due date applied');
+      } else if (rec.type === 'move' && rec.suggestedListId) {
+        const sourceListId = board?.lists.find(list => list.cards.some(card => card._id === rec.cardId))?._id;
+        if (sourceListId) {
+          await moveCard(sourceListId, rec.suggestedListId, rec.cardId);
+          toast.success('Card moved to ' + rec.suggestedListTitle);
+        }
+      } else if (rec.type === 'related') {
+        const ids = rec.cardIds?.map(String) || [];
+        setHighlightedCards(ids);
+        toast(`Found ${ids.length} related cards`, { icon: 'Link' });
+        setTimeout(() => setHighlightedCards([]), 6000);
       }
-    } else if (rec.type === 'related') {
-      const ids = rec.cardIds?.map(String) || [];
-      setHighlightedCards(ids);
-      setTimeout(() => setHighlightedCards([]), 6000);
+    } catch (err) {
+      toast.error('Failed to apply suggestion');
     }
   };
 
   const members = useMemo(() => board?.members || [], [board]);
 
-  if (loading) {
-    return <div>Loading board…</div>;
-  }
-
-  if (error) {
-    return <div className="text-red-500">{error}</div>;
-  }
+  if (loading) return <LoadingSpinner message="Opening board..." />;
+  if (error) return <div className="text-red-500 text-center py-20 text-lg">{error}</div>;
 
   return (
     <div className="space-y-6">
@@ -116,6 +157,7 @@ export default function BoardPage() {
           Invite teammates
         </button>
       </div>
+
       <div className="flex flex-wrap gap-2">
         {members.map(member => (
           <span
@@ -133,19 +175,20 @@ export default function BoardPage() {
           <input
             value={newListTitle}
             onChange={e => setNewListTitle(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addList()}
             placeholder="List title"
-            className="flex-1 min-w-[200px] rounded-2xl border border-slate-200 px-4 py-3"
+            className="flex-1 min-w-[200px] rounded-2xl border border-slate-200 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand/60"
           />
           <button
             onClick={addList}
-            className="px-4 py-3 rounded-2xl bg-slate-900 text-white font-semibold"
+            className="px-4 py-3 rounded-2xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
           >
             Add list
           </button>
         </div>
       </div>
 
-  <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
         <div className="glass-panel rounded-3xl p-4">
           <Board
             lists={board?.lists || []}
@@ -161,8 +204,8 @@ export default function BoardPage() {
           refreshing={refreshing}
         />
       </div>
+
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} onInvite={inviteUser} />
     </div>
   );
 }
-
