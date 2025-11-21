@@ -263,3 +263,49 @@ Stored separate from boards for:
 * **Good for real-time** → minimal DB calls when updating
 * **Scalable** → cards don't bloat board documents
 * **Clean structure** → simple to maintain
+
+
+#  Future Updates (Planned)
+
+These are upcoming improvements planned for the next versions:
+
+
+## **1. AI-Powered Smart Recommendations (Gemini AI Integration)**
+
+Currently, the recommendation engine is rule-based.
+The next upgrade will:
+
+* Analyze card descriptions with **Gemini 2.0 Flash**
+* Suggest:
+
+  * Task breakdown
+  * Priority levels
+  * Automatic due dates
+  * Contextual reminders
+* Improve related-card detection using embeddings
+
+This will make the board **much more intelligent**.
+
+
+## **2. Dark / Light Theme Support**
+
+Introducing theme switching:
+
+* Toggle button in the navbar
+* TailwindCSS + CSS variables
+* User preference stored in database or localStorage
+* Smooth transitions between themes
+
+
+## **3. Improved Mobile Responsiveness**
+
+Current UI works on mobile but is **desktop-first**.
+
+Planned enhancements:
+
+* Better list stacking on small screens
+* Card modal redesigned for mobile usability
+* Scroll improvements for long boards
+* DnD fixes for touch devices
+
+Goal: **Fully mobile-friendly Trello-like experience**.
