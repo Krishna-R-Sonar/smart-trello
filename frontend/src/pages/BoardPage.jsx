@@ -7,7 +7,7 @@ import Board from '../components/Board/Board';
 import RecommendationsPanel from '../components/Board/RecommendationsPanel';
 import InviteModal from '../components/InviteModal';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = 'https://smart-trello.onrender.com';
 const SOCKET_URL = API_URL;
 
 export default function BoardPage() {
