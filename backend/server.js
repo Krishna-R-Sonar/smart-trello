@@ -1,9 +1,10 @@
 // backend/server.js
+// backend/server.js
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const http = require('http');
-const {Server} = require('socket.io');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const connectDB = require('./config/db');
@@ -16,33 +17,34 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
+// Dynamic allowed origins
 const allowedOrigins = [
+  'https://smart-trello.vercel.app',
   'https://smart-trello.onrender.com',
-  'https://smart-trello.vercel.app'
+  'http://localhost:5173', // for local dev
+  'http://localhost:3000'
 ];
 
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-        return callback(new Error(msg), false);
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
       }
-      return callback(null, true);
     },
     credentials: true
   }
 });
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
-    return callback(null, true);
   },
   credentials: true
 }));
@@ -60,8 +62,8 @@ app.use('/api/boards', boardRoutes);
 app.use('/api/cards', cardRoutes);
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     message: 'Server is running',
     timestamp: new Date().toISOString()
   });
