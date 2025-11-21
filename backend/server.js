@@ -17,7 +17,6 @@ const app = express();
 const server = http.createServer(app);
 
 const allowedOrigins = [
-  'http://localhost:5173',
   'https://smart-trello.vercel.app'
 ];
 
